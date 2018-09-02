@@ -1,9 +1,9 @@
 {
-    "name": "Mnist_LeNet",
+    "name": "TGS_Unet",
     "cuda": true,
     "gpu": 0,
     "data_loader": {
-        "data_dir": "../data/",
+        "data_dir": "./input/",
         "batch_size": 32,
         "shuffle": true
     },

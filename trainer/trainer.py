@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torchvision.utils import make_grid
 from base import BaseTrainer
 
 
@@ -12,7 +13,7 @@ class Trainer(BaseTrainer):
         self.optimizer is by default handled by BaseTrainer based on config.
     """
     def __init__(self, model, loss, metrics, resume, config,
-                 data_loader, valid_data_loader=None, train_logger=None):
+                 data_loader, valid_data_loader=None, train_logger=None, writer=None):
         super(Trainer, self).__init__(model, loss, metrics, resume, config, train_logger)
         self.config = config
         self.batch_size = data_loader.batch_size
@@ -20,12 +21,11 @@ class Trainer(BaseTrainer):
         self.valid_data_loader = valid_data_loader
         self.valid = True if self.valid_data_loader is not None else False
         self.log_step = int(np.sqrt(self.batch_size))
+        self.writer = writer
 
     def _eval_metrics(self, output, target):
         acc_metrics = np.zeros(len(self.metrics))
-        output = output.cpu().data.numpy()
-        target = target.cpu().data.numpy()
-        output = np.argmax(output, axis=1)
+
         for i, metric in enumerate(self.metrics):
             acc_metrics[i] += metric(output, target)
         return acc_metrics
@@ -62,6 +62,9 @@ class Trainer(BaseTrainer):
             total_loss += loss.item()
             total_metrics += self._eval_metrics(output, target)
 
+            train_steps = epoch * len(self.data_loader) + batch_idx
+            self.writer.add_scalar('train/loss', loss.item(), train_steps)
+
             if self.verbosity >= 2 and batch_idx % self.log_step == 0:
                 self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
                     epoch,
@@ -69,6 +72,9 @@ class Trainer(BaseTrainer):
                     len(self.data_loader) * self.data_loader.batch_size,
                     100.0 * batch_idx / len(self.data_loader),
                     loss.item()))
+                self.writer.add_image('train/input', make_grid(data.cpu(), nrow=4), train_steps)
+                self.writer.add_image('train/target', make_grid(target.cpu(), nrow=4), train_steps)
+                self.writer.add_image('train/output', make_grid(output.cpu(), nrow=4), train_steps)
 
         log = {
             'loss': total_loss / len(self.data_loader),

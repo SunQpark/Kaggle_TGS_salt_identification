@@ -8,11 +8,11 @@
         "shuffle": true
     },
     "validation": {
-        "validation_split": 0.1,
+        "validation_split": 0.05,
         "shuffle": true
     },
 
-    "lr_scheduler_type": "ExponentialLR",
+    "lr_scheduler_type": "",
     "lr_scheduler_freq": 1,
     "lr_scheduler": {
             "gamma": 0.8685113737513527
@@ -23,8 +23,8 @@
         "lr": 0.001,
         "weight_decay": 0
     },
-    "loss": "my_loss",
-    "metrics": ["my_metric", "my_metric2"],
+    "loss": "mse_loss",
+    "metrics": ["iou_score"],
     "trainer": {
         "epochs": 1000,
         "save_dir": "saved/",
@@ -33,7 +33,7 @@
         "monitor": "val_loss",
         "monitor_mode": "min"
     },
-    "arch": "MnistModel", 
+    "arch": "Unet", 
     "model": {
 
     }

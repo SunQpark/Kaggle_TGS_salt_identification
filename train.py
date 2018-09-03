@@ -3,6 +3,8 @@ import json
 import logging
 import argparse
 import torch
+from datetime import datetime
+from tensorboardX import SummaryWriter
 from model.model import *
 from model.loss import *
 from model.metric import *
@@ -15,12 +17,14 @@ logging.basicConfig(level=logging.INFO, format='')
 
 def main(config, resume):
     train_logger = Logger()
+    writer = SummaryWriter(f"saved/{config['name']}/runs/{datetime.now().strftime('%y%m%d%H%M%S')}")
 
     data_loader = SaltDataLoader(config)
     valid_data_loader = data_loader.split_validation()
 
-    model = eval(config['arch'])(config['model'])
-    model.summary()
+    model = eval(config['arch'])()
+    # model.summary()
+    print(model)
 
     loss = eval(config['loss'])
     metrics = [eval(metric) for metric in config['metrics']]
@@ -30,7 +34,8 @@ def main(config, resume):
                       config=config,
                       data_loader=data_loader,
                       valid_data_loader=valid_data_loader,
-                      train_logger=train_logger)
+                      train_logger=train_logger,
+                      writer=writer)
 
     trainer.train()
 

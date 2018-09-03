@@ -35,13 +35,14 @@ class SaltDataset(Dataset):
             img = self.transform(img)
         if self.target_transform is not None:
             mask = self.target_transform(mask)
-
+            mask = (mask > 0).float()
         return img, mask
 
 
 class SaltDataLoader(BaseDataLoader):
     def __init__(self, config):
         trsfm = transforms.Compose([
+            transforms.Pad((13, 13, 14, 14), padding_mode='reflect'),
             transforms.ToTensor(),
             ])
         self.data_dir = config['data_loader']['data_dir']
@@ -60,6 +61,8 @@ if __name__ == '__main__':
     for i, (data, target) in enumerate(loader):
         print(data.shape)
         print(target.shape)
+        print(data[0:10])
+        print(target[0:10])
         if i == 10:
             break
     

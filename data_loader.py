@@ -10,33 +10,41 @@ from utils import rle_decode
 
 
 class SaltDataset(Dataset):
-    def __init__(self, data_dir, transform=None, target_transform=None):
+    def __init__(self, data_dir, transform=None, target_transform=None, train=True):
         super(SaltDataset, self).__init__()
         self.data_dir = data_dir
         self.transform = transform
         self.target_transform = target_transform
-        self.metadata = pd.read_csv(os.path.join(self.data_dir, 'train.csv'), usecols=['id'])
+        self.train = train
+        filename = 'train.csv' if train else 'sample_submission.csv'
+        
+        self.metadata = pd.read_csv(os.path.join(self.data_dir, filename), usecols=['id'])
 
     def __len__(self):
-        return len(self.metadata)
+        return len(self.metadata.id)
 
     def _get_image(self, id, mask=False):
         mode = 'masks' if mask else 'images'
-        img_path = os.path.join(self.data_dir, f'train/{mode}/{id}.png')
+        img_dir = 'train' if self.train else 'test'
+        img_path = os.path.join(self.data_dir, f'{img_dir}/{mode}/{id}.png')
         return Image.open(img_path)
 
     def __getitem__(self, idx):
         image_id = self.metadata.id[idx]
+
         img  = self._get_image(image_id)
-        mask = self._get_image(image_id, mask=True)
-        
         # apply transforms
         if self.transform is not None:
             img = self.transform(img)
-        if self.target_transform is not None:
-            mask = self.target_transform(mask)
-            mask = (mask > 0).float()
-        return img, mask
+        
+        if self.train:
+            mask = self._get_image(image_id, mask=True)
+            if self.target_transform is not None:
+                mask = self.target_transform(mask)
+                mask = (mask > 0).float()
+            return img, mask
+        else:
+            return img, image_id
 
 
 class SaltDataLoader(BaseDataLoader):
@@ -52,7 +60,7 @@ class SaltDataLoader(BaseDataLoader):
 
 import json
 if __name__ == '__main__':
-    transform = transforms.Compose([
+    trsfm = transforms.Compose([
         transforms.ToTensor()
         ])
     
@@ -66,3 +74,8 @@ if __name__ == '__main__':
         if i == 10:
             break
     
+    # dset = SaltDataset('input', transform=trsfm, target_transform=trsfm, train=True)
+    # print(len(dset))
+    # data, target = dset[len(dset) - 1]
+    # print(data.shape)
+    # print(target.shape)

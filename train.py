@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='')
 
 def main(config, resume):
     train_logger = Logger()
-    writer = SummaryWriter(f"saved/{config['name']}/runs/{datetime.now().strftime('%y%m%d%H%M%S')}")
+    writer = SummaryWriter(f"saved/runs/{config['name']}/{datetime.now().strftime('%y%m%d%H%M%S')}")
 
     data_loader = SaltDataLoader(config)
     valid_data_loader = data_loader.split_validation()

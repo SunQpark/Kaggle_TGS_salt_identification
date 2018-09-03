@@ -4,7 +4,7 @@
     "gpu": 0,
     "data_loader": {
         "data_dir": "./input/",
-        "batch_size": 32,
+        "batch_size": 64,
         "shuffle": true
     },
     "validation": {
@@ -26,7 +26,7 @@
     "loss": "mse_loss",
     "metrics": ["iou_score"],
     "trainer": {
-        "epochs": 1000,
+        "epochs": 64,
         "save_dir": "saved/",
         "save_freq": 1,
         "verbosity": 2,

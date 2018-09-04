@@ -1,10 +1,10 @@
 {
-    "name": "TGS_Unet",
+    "name": "TGS_Unet_128",
     "cuda": true,
     "gpu": 0,
     "data_loader": {
         "data_dir": "./input/",
-        "batch_size": 64,
+        "batch_size": 384,
         "shuffle": true
     },
     "validation": {
@@ -21,10 +21,11 @@
     "optimizer_type": "Adam",
     "optimizer": {
         "lr": 0.001,
-        "weight_decay": 0
+        "weight_decay": 0,
+        "amsgrad": true
     },
-    "loss": "mse_loss",
-    "metrics": ["iou_score"],
+    "loss": "bce_loss",
+    "metrics": ["mean_iou"],
     "trainer": {
         "epochs": 64,
         "save_dir": "saved/",

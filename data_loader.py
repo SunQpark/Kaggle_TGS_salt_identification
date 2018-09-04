@@ -50,7 +50,7 @@ class SaltDataset(Dataset):
 class SaltDataLoader(BaseDataLoader):
     def __init__(self, config):
         trsfm = transforms.Compose([
-            transforms.Pad((13, 13, 14, 14), padding_mode='reflect'),
+            transforms.Pad((5, 5, 6, 6), padding_mode='reflect'),
             transforms.ToTensor(),
             ])
         self.data_dir = config['data_loader']['data_dir']

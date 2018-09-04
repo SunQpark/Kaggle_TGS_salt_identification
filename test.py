@@ -10,12 +10,12 @@ from PIL import Image
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-resume_path = 'saved/TGS_Unet_128/model_best.pth.tar'
+resume_path = 'saved/TGS_Unet_112/model_best.pth.tar'
 output_path = 'saved/submission.csv'
 threshold = 0.9
 
 trfm = transforms.Compose([
-    transforms.Pad((13, 13, 14, 14), padding_mode='reflect'),
+    transforms.Pad((5, 5, 6, 6), padding_mode='reflect'),
     transforms.ToTensor(),
     ])
 dataset = SaltDataset('input', transform=trfm, train=False)
@@ -45,7 +45,7 @@ with open(output_path, 'wt') as f:
                 continue
             else:
                 output = model(torch.cat(batch, dim=0).to(device))
-                output = output[:, 0, 13:-14, 13:-14] > threshold
+                output = output[:, 0, 5:-6, 5:-6] > threshold
                 for mask, fname in zip(torch.unbind(output, dim=0), ids):
                     rle = rle_encode(mask.cpu().numpy().astype(np.bool))
                     f.write(f'{fname},{rle}\n')

@@ -23,14 +23,6 @@ class Trainer(BaseTrainer):
         self.log_step = int(np.sqrt(self.batch_size))
         self.writer = writer
 
-    def _eval_metrics(self, output, target, steps):
-        acc_metrics = np.zeros(len(self.metrics))
-
-        for i, metric in enumerate(self.metrics):
-            acc_metrics[i] += metric(output, target)
-            self.writer.add_scalar(f'train/{metric.__name__}', acc_metrics[i], steps)
-        return acc_metrics
-
     def _train_epoch(self, epoch):
         """
         Training logic for an epoch
@@ -67,13 +59,14 @@ class Trainer(BaseTrainer):
                 acc_metrics[i] += metric(output, target)
                 self.writer.add_scalar(f'train/{metric.__name__}', acc_metrics[i], train_steps)
             if self.verbosity >= 2 and batch_idx % self.log_step == 0:
-                self.writer.add_image('train/input', make_grid(data.cpu(), nrow=4), train_steps)
-                self.writer.add_image('train/target', make_grid(target.cpu(), nrow=4), train_steps)
-                self.writer.add_image('train/output', make_grid(output.cpu(), nrow=4), train_steps)
+                self.writer.add_image('train/input', make_grid(data[:32].cpu(), nrow=4), train_steps)
+                self.writer.add_image('train/target', make_grid(target[:32].cpu(), nrow=4), train_steps)
+                self.writer.add_image('train/output', make_grid(output[:32].cpu(), nrow=4), train_steps)
                 self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
                     epoch,
                     batch_idx * self.data_loader.batch_size,
-                    len(self.data_loader) * self.data_loader.batch_size,
+                    # len(self.data_loader) * self.data_loader.batch_size,
+                    self.data_loader.n_samples,
                     100.0 * batch_idx / len(self.data_loader),
                     loss.item()))
             total_metrics += acc_metrics
@@ -114,10 +107,10 @@ class Trainer(BaseTrainer):
                 acc_metrics = np.zeros(len(self.metrics))
                 for i, metric in enumerate(self.metrics):
                     acc_metrics[i] += metric(output, target)
-                    self.writer.add_scalar(f'train/{metric.__name__}', acc_metrics[i], valid_steps)
-                self.writer.add_image('valid/input', make_grid(data.cpu(), nrow=4), valid_steps)
-                self.writer.add_image('valid/target', make_grid(target.cpu(), nrow=4), valid_steps)
-                self.writer.add_image('valid/output', make_grid(output.cpu(), nrow=4), valid_steps)
+                    self.writer.add_scalar(f'valid/{metric.__name__}', acc_metrics[i], valid_steps)
+                self.writer.add_image('valid/input', make_grid(data[:32].cpu(), nrow=4), valid_steps)
+                self.writer.add_image('valid/target', make_grid(target[:32].cpu(), nrow=4), valid_steps)
+                self.writer.add_image('valid/output', make_grid(output[:32].cpu(), nrow=4), valid_steps)
                 total_val_loss += loss.item()
                 total_val_metrics += acc_metrics
                 

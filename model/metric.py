@@ -24,7 +24,6 @@ def mean_iou(output, target, threshold=0.8, eps=1e-8):
     b = output.shape[0]
     output = output.view(b, -1)
     target = target.view(b, -1).float()
-
     output = (output > threshold).float()
     
     output_empty = torch.max(output, dim=1, keepdim=True)[0] == 0
@@ -32,14 +31,16 @@ def mean_iou(output, target, threshold=0.8, eps=1e-8):
     n_TN = (output_empty * target_empty).sum().float()
 
     intersection = (output * target).sum(1, keepdim=True)
-    union = torch.max(output, target).sum(1) + eps
+    union = torch.max(output, target).sum(1, keepdim=True) + eps
     score = intersection / union
-    # print(score)
+    # print(score.shape)
     hits = torch.cat([(score > t) for t in np.arange(0.5, 1.0, 0.05)], dim=1).float()
+    # print(hits.shape)
     prec = torch.sum(hits, dim=0) / (b - n_TN + eps)
     return torch.mean(prec)
 
+
 if __name__ == '__main__':
-    out = torch.ones(10, 1, 101, 101) > 0.2
-    tar = torch.ones(10, 1, 101, 101) > 0.3
+    out = torch.rand(10, 1, 101, 101) > 0.2
+    tar = torch.rand(10, 1, 101, 101) > 0.2
     print(mean_iou(out, tar))

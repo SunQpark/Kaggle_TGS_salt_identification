@@ -21,14 +21,14 @@ class Unet(nn.Module):
             nn.Upsample(scale_factor=2),
             nn.Conv2d(n_features*16, n_features*8, 3, 1, padding=1),
             nn.BatchNorm2d(n_features*8),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.ReLU(inplace=True),
         )
 
         self.decoder = nn.Sequential(
             self._make_block(n_features*16, n_features*8, upsample=True),
             self._make_block(n_features*8, n_features*4, upsample=True),
             self._make_block(n_features*4, n_features*2, upsample=True),
-            self._make_block(n_features*2, n_features  , upsample=False, last_activation=False),
+            self._make_block(n_features*2, n_features  , upsample=False),
         )
         self.output = nn.Conv2d(n_features, out_ch, 1, 1)
 

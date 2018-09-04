@@ -1,10 +1,10 @@
 {
-    "name": "TGS_Unet_128",
+    "name": "TGS_Unet_112",
     "cuda": true,
     "gpu": 0,
     "data_loader": {
         "data_dir": "./input/",
-        "batch_size": 384,
+        "batch_size": 768,
         "shuffle": true
     },
     "validation": {
@@ -12,27 +12,28 @@
         "shuffle": true
     },
 
-    "lr_scheduler_type": "",
+    "lr_scheduler_type": "ReduceLRonPlateau",
     "lr_scheduler_freq": 1,
     "lr_scheduler": {
-            "gamma": 0.8685113737513527
+            "factor": 0.1, 
+            "patience":10
     },
  
     "optimizer_type": "Adam",
     "optimizer": {
-        "lr": 0.001,
+        "lr": 0.002,
         "weight_decay": 0,
         "amsgrad": true
     },
-    "loss": "bce_loss",
+    "loss": "bce_with_l1_loss",
     "metrics": ["mean_iou"],
     "trainer": {
-        "epochs": 64,
+        "epochs": 128,
         "save_dir": "saved/",
         "save_freq": 1,
         "verbosity": 2,
-        "monitor": "val_loss",
-        "monitor_mode": "min"
+        "monitor": "val_mean_iou",
+        "monitor_mode": "max"
     },
     "arch": "Unet", 
     "model": {

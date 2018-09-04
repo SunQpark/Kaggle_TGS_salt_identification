@@ -10,7 +10,7 @@ from PIL import Image
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-resume_path = 'saved/TGS_Unet/model_best.pth.tar'
+resume_path = 'saved/TGS_Unet_128/model_best.pth.tar'
 output_path = 'saved/submission.csv'
 threshold = 0.9
 
@@ -21,13 +21,13 @@ trfm = transforms.Compose([
 dataset = SaltDataset('input', transform=trfm, train=False)
 
 # load trained weights
-model = Unet()
+model = Unet(n_features=8)
 print(f"Loading checkpoint: {resume_path} ...")
 checkpoint = torch.load(resume_path)
 model.load_state_dict(checkpoint['state_dict'])
 model = model.to(device)
 
-batch_size = 128
+batch_size = 2048
 batch = []
 ids = []
 
@@ -35,21 +35,22 @@ rle_vec = np.vectorize(rle_encode)
 n_data = len(dataset)
 with open(output_path, 'wt') as f:
     f.write('id,rle_mask\n')
-    for i in tqdm(range(n_data)):
-        data, fname = dataset[i]
-        data = data.unsqueeze(0)
-        batch.append(data)
-        ids.append(fname)
-        if len(batch) < batch_size and i != n_data - 1:
-            continue
-        else:
-            output = model(torch.cat(batch, dim=0).to(device))
-            output = output[:, 0, 13:-14, 13:-14] > threshold
-            for mask, fname in zip(torch.unbind(output, dim=0), ids):
-                rle = rle_encode(mask.cpu().numpy().astype(np.bool))
-                f.write(f'{fname},{rle}\n')
-            batch = []
-            ids = []
+    with torch.no_grad():
+        for i in tqdm(range(n_data)):
+            data, fname = dataset[i]
+            data = data.unsqueeze(0)
+            batch.append(data)
+            ids.append(fname)
+            if len(batch) < batch_size and i != n_data - 1:
+                continue
+            else:
+                output = model(torch.cat(batch, dim=0).to(device))
+                output = output[:, 0, 13:-14, 13:-14] > threshold
+                for mask, fname in zip(torch.unbind(output, dim=0), ids):
+                    rle = rle_encode(mask.cpu().numpy().astype(np.bool))
+                    f.write(f'{fname},{rle}\n')
+                batch = []
+                ids = []
     # process last batch
     # output = model(torch.cat(batch, dim=0).to(device))
     # output = output[:, 0, 13:-14, 13:-14] > threshold

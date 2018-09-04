@@ -22,7 +22,7 @@ def main(config, resume):
     data_loader = SaltDataLoader(config)
     valid_data_loader = data_loader.split_validation()
 
-    model = eval(config['arch'])()
+    model = eval(config['arch'])(n_features=8)
     # model.summary()
     print(model)
 

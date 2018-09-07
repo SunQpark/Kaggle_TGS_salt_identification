@@ -10,7 +10,7 @@ from PIL import Image
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-resume_path = 'saved/TGS_Unet_112/model_best.pth.tar'
+resume_path = 'saved/TGS_Unet_256/model_best.pth.tar'
 output_path = 'saved/submission.csv'
 threshold = 0.9
 
@@ -21,13 +21,13 @@ trfm = transforms.Compose([
 dataset = SaltDataset('input', transform=trfm, train=False)
 
 # load trained weights
-model = Unet(n_features=8)
+model = Unet(n_features=16)
 print(f"Loading checkpoint: {resume_path} ...")
 checkpoint = torch.load(resume_path)
 model.load_state_dict(checkpoint['state_dict'])
 model = model.to(device)
 
-batch_size = 2048
+batch_size = 1024 
 batch = []
 ids = []
 
@@ -45,7 +45,7 @@ with open(output_path, 'wt') as f:
                 continue
             else:
                 output = model(torch.cat(batch, dim=0).to(device))
-                output = output[:, 0, 5:-6, 5:-6] > threshold
+                output = (output[:, 0, 5:-6, 5:-6] > threshold).transpose(1, 2)
                 for mask, fname in zip(torch.unbind(output, dim=0), ids):
                     rle = rle_encode(mask.cpu().numpy().astype(np.bool))
                     f.write(f'{fname},{rle}\n')

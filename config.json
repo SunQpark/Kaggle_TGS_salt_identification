@@ -1,10 +1,10 @@
 {
-    "name": "TGS_Unet_112",
+    "name": "TGS_Unet_256",
     "cuda": true,
     "gpu": 0,
     "data_loader": {
         "data_dir": "./input/",
-        "batch_size": 768,
+        "batch_size": 384,
         "shuffle": true
     },
     "validation": {
@@ -28,7 +28,7 @@
     "loss": "bce_with_l1_loss",
     "metrics": ["mean_iou"],
     "trainer": {
-        "epochs": 128,
+        "epochs": 2000,
         "save_dir": "saved/",
         "save_freq": 1,
         "verbosity": 2,

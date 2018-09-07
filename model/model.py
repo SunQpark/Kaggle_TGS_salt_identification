@@ -28,25 +28,27 @@ class Unet(nn.Module):
             self._make_block(n_features*16, n_features*8, upsample=True),
             self._make_block(n_features*8, n_features*4, upsample=True),
             self._make_block(n_features*4, n_features*2, upsample=True),
-            self._make_block(n_features*2, n_features  , upsample=False),
-        )
+            self._make_block(n_features*2, n_features, upsample=False),
+        )      
         self.output = nn.Conv2d(n_features, out_ch, 1, 1)
 
 
-    def _make_block(self, in_ch, out_ch, upsample=False, activation='relu', last_activation=True):
+    def _make_block(self, in_ch, out_ch, dropout=0.1, upsample=False, activation='relu', last_activation=True):
         if activation == 'relu':
             activ = nn.ReLU(inplace=True)
         elif activation == 'leaky_relu':
             activ = nn.LeakyReLU(0.2, inplace=True),
         elif activation == 'elu':
             activ = nn.ELU(inplace=True)
-
+        
         layers = [
             nn.Conv2d(in_ch, out_ch, 3, 1, padding=1),
+            nn.Dropout2d(p=dropout, inplace=False),
             nn.BatchNorm2d(out_ch),
             activ,
 
             nn.Conv2d(out_ch, out_ch, 3, 1, padding=1),
+            nn.Dropout2d(p=dropout, inplace=False),
             nn.BatchNorm2d(out_ch),
         ]
         if upsample:

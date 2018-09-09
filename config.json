@@ -1,10 +1,10 @@
 {
-    "name": "TGS_Unet_256",
+    "name": "Unet_withResBlock",
     "cuda": true,
     "gpu": 0,
     "data_loader": {
         "data_dir": "./input/",
-        "batch_size": 384,
+        "batch_size": 256,
         "shuffle": true
     },
     "validation": {
@@ -37,6 +37,7 @@
     },
     "arch": "Unet", 
     "model": {
-
+        "residual": true,
+        "n_fts": 16
     }
 }

@@ -5,14 +5,14 @@ from tqdm import tqdm
 from torchvision import transforms
 from model.model import Unet
 from data_loader import SaltDataset
-from utils import rle_encode, rle_decode
 from PIL import Image
+from utils import rle_encode, rle_decode
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 resume_path = 'saved/TGS_Unet_256/model_best.pth.tar'
 output_path = 'saved/submission.csv'
-threshold = 0.9
+threshold = 0.8
 
 trfm = transforms.Compose([
     transforms.Pad((5, 5, 6, 6), padding_mode='reflect'),
@@ -21,7 +21,7 @@ trfm = transforms.Compose([
 dataset = SaltDataset('input', transform=trfm, train=False)
 
 # load trained weights
-model = Unet(n_features=16)
+model = Unet(n_fts=16)
 print(f"Loading checkpoint: {resume_path} ...")
 checkpoint = torch.load(resume_path)
 model.load_state_dict(checkpoint['state_dict'])

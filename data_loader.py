@@ -17,7 +17,7 @@ class SaltDataset(Dataset):
         self.transform = transform
         self.target_transform = target_transform
         self.train = train
-        filename = 'train.csv' if train else 'sample_submission.csv'
+        filename = 'depths.csv' if train else 'sample_submission.csv'
         
         self.metadata = pd.read_csv(os.path.join(self.data_dir, filename), usecols=['id'])
 
@@ -53,15 +53,16 @@ class SaltDataset(Dataset):
 
 class SaltDataLoader(BaseDataLoader):
     def __init__(self, config):
-        trsfm = transforms.Compose([
-            # transforms.ColorJitter(brightness=0.2),
+        trsfm_shared = [ 
             transforms.RandomResizedCrop(101, scale=(0.7, 1.0)),# ratio=(0.75, 1.3333333333333333)),
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.Pad((5, 5, 6, 6), padding_mode='reflect'),
             transforms.ToTensor(),
-            ])
+            ]
+        input_trfm = transforms.Compose([transforms.ColorJitter(brightness=0.2)] + trsfm_shared)
+        target_trfm = transforms.Compose(trsfm_shared)
         self.data_dir = config['data_loader']['data_dir']
-        self.dataset = SaltDataset(self.data_dir, transform=trsfm, target_transform=trsfm)
+        self.dataset = SaltDataset(self.data_dir, transform=input_trfm, target_transform=target_trfm)
         super(SaltDataLoader, self).__init__(self.dataset, config)
 
 
@@ -81,8 +82,3 @@ if __name__ == '__main__':
         if i == 10:
             break
     
-    # dset = SaltDataset('input', transform=trsfm, target_transform=trsfm, train=True)
-    # print(len(dset))
-    # data, target = dset[len(dset) - 1]
-    # print(data.shape)
-    # print(target.shape)

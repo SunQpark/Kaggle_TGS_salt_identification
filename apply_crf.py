@@ -10,9 +10,6 @@ from tqdm import tqdm
 from utils import rle_decode, rle_encode
 
 
-df = pd.read_csv('saved/submission.csv')
-test_path = 'input/test/images/'
-
 """
 Function which returns the labelled image after applying CRF
 
@@ -52,17 +49,23 @@ def crf(original_image, mask_img):
 
     return MAP.reshape((original_image.shape[0],original_image.shape[1]))
 
-"""
-Applying CRF on the predicted mask 
 
-"""
-for i in tqdm(range(df.shape[0])):
-    if str(df.loc[i,'rle_mask'])!=str(np.nan):        
-        decoded_mask = rle_decode(df.loc[i,'rle_mask'], shape=(101, 101))
-        # print(decoded_mask.T)
-        orig_img = imread(test_path+df.loc[i,'id']+'.png')
-        crf_output = crf(orig_img,decoded_mask)
-        # assert(False)
-        df.loc[i,'rle_mask'] = rle_encode(crf_output.T)
+if __name__ == '__main__':
 
-df.to_csv('saved/submission_CRF.csv', index=False)
+    df = pd.read_csv('saved/submission.csv')
+    test_path = 'input/test/images/'
+
+    """
+    Applying CRF on the predicted mask 
+
+    """
+    for i in tqdm(range(df.shape[0])):
+        if str(df.loc[i,'rle_mask'])!=str(np.nan):        
+            decoded_mask = rle_decode(df.loc[i,'rle_mask'], shape=(101, 101))
+            # print(decoded_mask.T)
+            orig_img = imread(test_path+df.loc[i,'id']+'.png')
+            crf_output = crf(orig_img,decoded_mask)
+            # assert(False)
+            df.loc[i,'rle_mask'] = rle_encode(crf_output.T)
+
+    df.to_csv('saved/submission_CRF.csv', index=False)

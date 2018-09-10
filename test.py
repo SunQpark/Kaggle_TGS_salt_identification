@@ -1,5 +1,7 @@
 import sys, os
+import shutil
 import numpy as np
+import pandas as pd
 import torch
 from tqdm import tqdm
 from torchvision import transforms
@@ -7,34 +9,23 @@ from model.model import Unet
 from data_loader import SaltDataset
 from PIL import Image
 from utils import rle_encode, rle_decode
+from apply_crf import crf
+from skimage.io import imread
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-resume_path = 'saved/TGS_Unet_256/model_best.pth.tar'
-output_path = 'saved/submission.csv'
-threshold = 0.8
+def evaluate(model_path, dataset, device):
+    # load trained weights
+    model = Unet(n_fts=16, residual=True)
+    print(f"Loading checkpoint: {model_path} ...")
+    checkpoint = torch.load(model_path)
+    model.load_state_dict(checkpoint['state_dict'])
+    model = model.to(device)
 
-trfm = transforms.Compose([
-    transforms.Pad((5, 5, 6, 6), padding_mode='reflect'),
-    transforms.ToTensor(),
-    ])
-dataset = SaltDataset('input', transform=trfm, train=False)
+    batch_size = 1024 
+    batch = []
+    ids = []
 
-# load trained weights
-model = Unet(n_fts=16)
-print(f"Loading checkpoint: {resume_path} ...")
-checkpoint = torch.load(resume_path)
-model.load_state_dict(checkpoint['state_dict'])
-model = model.to(device)
-
-batch_size = 1024 
-batch = []
-ids = []
-
-rle_vec = np.vectorize(rle_encode)
-n_data = len(dataset)
-with open(output_path, 'wt') as f:
-    f.write('id,rle_mask\n')
+    n_data = len(dataset)
     with torch.no_grad():
         for i in tqdm(range(n_data)):
             data, fname = dataset[i]
@@ -45,34 +36,53 @@ with open(output_path, 'wt') as f:
                 continue
             else:
                 output = model(torch.cat(batch, dim=0).to(device))
-                output = (output[:, 0, 5:-6, 5:-6] > threshold).transpose(1, 2)
+                output = output[:, 0, 5:-6, 5:-6].transpose(1, 2)
                 for mask, fname in zip(torch.unbind(output, dim=0), ids):
-                    rle = rle_encode(mask.cpu().numpy().astype(np.bool))
-                    f.write(f'{fname},{rle}\n')
+                    temp_path = f'saved/temp/{fname}.npy'
+                    if os.path.isfile(temp_path):
+                        mask_cum = np.load(temp_path)
+                        mask += torch.from_numpy(mask_cum).to(device)
+                    
+                    np.save(temp_path, mask)
                 batch = []
                 ids = []
-    # process last batch
-    # output = model(torch.cat(batch, dim=0).to(device))
-    # output = output[:, 0, 13:-14, 13:-14] > threshold
-    # for mask, fname in zip(torch.unbind(output, dim=0), ids):
-    #     rle = rle_encode(mask.cpu().numpy().astype(np.bool))
-    #     f.write(f'{fname},{rle}\n')
 
-            # mask_recon = rle_decode(rle, (101, 101))
-        # print(output[:, :, 13:-14, 13:-14].shape)
-        # data = transforms.ToPILImage()(data[0, :, 13:-14, 13:-14].cpu())
-        # mask = ((output[0, :, 13:-14, 13:-14] > 0).cpu())
-        # data = (data[0, 0, 13:-14, 13:-14] > threshold).cpu().numpy()
-        # print(mask.astype(np.uint8)[:, 0:6])
-        # data = Image.fromarray(data*255, 'L')
-        
-        # mask_recon = Image.fromarray(mask_recon*255, 'L')
-        # print(np.max(mask - mask_recon))
-        # if i <= 10:
-        #     data.save(f'sample/{i}_orig.png')
-            # mask_recon.save(f'sample/{i}_out.png')
-        #     # Image.fromarray(data.astype(np.uint8), 'RGB').save(f'sample/{i}_orig.png')
-        #     # Image.fromarray(mask.astype(np.uint8), '1').save(f'sample/{i}_out.png')
-        # else:
-        #     break
-    # print(f'{fname},{rle}\n')
+if __name__ == '__main__':
+    num_folds = 3
+    threshold = 0.8
+    output_path = 'saved/submission.csv'
+
+    # delete temporary files 
+    shutil.rmtree('saved/temp')
+    os.mkdir('saved/temp')
+    
+    trfm = transforms.Compose([
+        transforms.Pad((5, 5, 6, 6), padding_mode='reflect'),
+        transforms.ToTensor(),
+        ])
+    dataset = SaltDataset('input', transform=trfm, train=False)
+    
+    # Evaluate models trained on each fold of cross-validation
+    # for fold_idx in range(num_folds):
+    for fold_idx in [1, 2, 3]:
+        resume_path = f'saved/Unet_withResBlock_fold{fold_idx}/model_best.pth.tar'
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        evaluate(resume_path, dataset, device=device)
+        # break
+
+    test_path = 'input/test/images/'
+    subm = pd.read_csv('input/sample_submission.csv')
+    print('applying CRF to the mask')
+    for i, fname in enumerate(tqdm(subm.id)):
+        temp_path = f'saved/temp/{fname}.npy'
+        # if not os.path.isfile(temp_path):    
+        #     continue
+        output = np.load(temp_path).T
+        mask = (output / num_folds) > threshold
+        orig_img = imread(f'{test_path}/{fname}.png')
+        crf_output = crf(orig_img, mask)
+
+        subm.loc[i,'rle_mask'] = rle_encode(crf_output.T)
+
+    subm.to_csv(output_path, index=False)
+    print(f'result saved at {output_path}')

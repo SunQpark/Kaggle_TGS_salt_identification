@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torchvision.utils import make_grid
 from base import BaseTrainer
-
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 class Trainer(BaseTrainer):
     """
@@ -22,6 +22,7 @@ class Trainer(BaseTrainer):
         self.valid = True if self.valid_data_loader is not None else False
         self.log_step = int(np.sqrt(self.batch_size))
         self.writer = writer
+        self.scheduler = ReduceLROnPlateau(self.optimizer, patience=40, verbose=True)
 
     def _train_epoch(self, epoch):
         """
@@ -113,6 +114,8 @@ class Trainer(BaseTrainer):
                 self.writer.add_image('valid/output', make_grid(output[:32].cpu(), nrow=4), valid_steps)
                 total_val_loss += loss.item()
                 total_val_metrics += acc_metrics
+
+                self.scheduler.step(loss.item())
                 
         return {
             'val_loss': total_val_loss / len(self.valid_data_loader),

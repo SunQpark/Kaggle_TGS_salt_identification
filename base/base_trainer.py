@@ -31,12 +31,12 @@ class BaseTrainer:
         self.train_logger = train_logger
         self.optimizer = getattr(optim, config['optimizer_type'])(model.parameters(),
                                                                   **config['optimizer'])
-        self.lr_scheduler = getattr(
-            optim.lr_scheduler,
-            config['lr_scheduler_type'], None)
-        if self.lr_scheduler:
-            self.lr_scheduler = self.lr_scheduler(self.optimizer, **config['lr_scheduler'])
-            self.lr_scheduler_freq = config['lr_scheduler_freq']
+        # self.lr_scheduler = getattr(
+        #     optim.lr_scheduler,
+        #     config['lr_scheduler_type'], None)
+        # if self.lr_scheduler:
+        #     self.lr_scheduler = self.lr_scheduler(self.optimizer, **config['lr_scheduler'])
+        #     self.lr_scheduler_freq = config['lr_scheduler_freq']
         self.monitor = config['trainer']['monitor']
         self.monitor_mode = config['trainer']['monitor_mode']
         assert self.monitor_mode == 'min' or self.monitor_mode == 'max'
@@ -76,10 +76,10 @@ class BaseTrainer:
                 self._save_checkpoint(epoch, log, save_best=True)
             if epoch % self.save_freq == 0:
                 self._save_checkpoint(epoch, log)
-            if self.lr_scheduler and epoch % self.lr_scheduler_freq == 0:
-                self.lr_scheduler.step(epoch)
-                lr = self.lr_scheduler.get_lr()[0]
-                self.logger.info('New Learning Rate: {:.6f}'.format(lr))
+            # if self.lr_scheduler and epoch % self.lr_scheduler_freq == 0:
+            #     self.lr_scheduler.step(epoch)
+            #     lr = self.lr_scheduler.get_lr()[0]
+            #     self.logger.info('New Learning Rate: {:.6f}'.format(lr))
 
     def _train_epoch(self, epoch):
         """

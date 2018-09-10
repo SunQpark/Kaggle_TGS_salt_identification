@@ -1,15 +1,16 @@
 {
-    "name": "Unet_withResBlock",
+    "name": "Unet_withResBlock_fold3",
     "cuda": true,
     "gpu": 0,
     "data_loader": {
         "data_dir": "./input/",
         "batch_size": 256,
-        "shuffle": true
+        "shuffle": true        
     },
     "validation": {
-        "validation_split": 0.05,
-        "shuffle": true
+        "validation_split": 0.25,
+        "shuffle": true,
+        "fold": 3
     },
 
     "lr_scheduler_type": "ReduceLRonPlateau",

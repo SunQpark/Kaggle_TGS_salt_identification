@@ -16,11 +16,12 @@ class BaseDataLoader(DataLoader):
         self.batch_size = config['data_loader']['batch_size']
         self.validation_split = config['validation']['validation_split']
         self.shuffle = config['data_loader']['shuffle']
-        
+        fold = config['validation']['fold']
+
         self.batch_idx = 0
         self.n_samples = len(self.dataset)
 
-        self.sampler, self.valid_sampler = self._split_sampler(self.validation_split)
+        self.sampler, self.valid_sampler = self._split_sampler(self.validation_split, fold)
 
         self.init_kwargs = {
             'dataset': self.dataset,
@@ -36,18 +37,19 @@ class BaseDataLoader(DataLoader):
         """
         return self.n_samples // self.batch_size
 
-    def _split_sampler(self, split):
+    def _split_sampler(self, split, fold=0, random_seed=0):
         if split == 0.0:
             return None, None
 
-        idx_full = np.arange(self.n_samples)
-        # TODO: make sure that this seed does not influence other sampling
-        np.random.seed(0) 
-        np.random.shuffle(idx_full)
+        np.random.seed(random_seed) 
+        idx_full = np.random.permutation(self.n_samples)
 
         len_valid = int(self.n_samples * split)
 
-        valid_idx = idx_full[0:len_valid]
+        start = fold * len_valid
+        stop = min((fold + 1) * len_valid, self.n_samples) - 1
+
+        valid_idx = idx_full[start:stop]
         train_idx = np.delete(idx_full, np.arange(0, len_valid))
         
         train_sampler = SubsetRandomSampler(train_idx)

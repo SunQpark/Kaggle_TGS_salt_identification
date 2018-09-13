@@ -1,23 +1,16 @@
 {
-    "name": "Unet_withResBlock_fold3",
+    "name": "Unet_Res34encoder",
     "cuda": true,
     "gpu": 0,
     "data_loader": {
         "data_dir": "./input/",
         "batch_size": 256,
-        "shuffle": true        
+        "shuffle": true     
     },
     "validation": {
-        "validation_split": 0.25,
+        "validation_split": 0.05,
         "shuffle": true,
-        "fold": 3
-    },
-
-    "lr_scheduler_type": "ReduceLRonPlateau",
-    "lr_scheduler_freq": 1,
-    "lr_scheduler": {
-            "factor": 0.1, 
-            "patience":10
+        "fold": 0
     },
  
     "optimizer_type": "Adam",
@@ -29,16 +22,15 @@
     "loss": "bce_with_l1_loss",
     "metrics": ["mean_iou"],
     "trainer": {
-        "epochs": 2000,
+        "epochs": 500,
         "save_dir": "saved/",
         "save_freq": 1,
         "verbosity": 2,
         "monitor": "val_mean_iou",
         "monitor_mode": "max"
     },
-    "arch": "Unet", 
+    "arch": "ResnetUnet", 
     "model": {
-        "residual": true,
-        "n_fts": 16
+        "n_fts": 32
     }
 }

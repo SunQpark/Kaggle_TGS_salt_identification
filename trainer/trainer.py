@@ -1,8 +1,9 @@
 import numpy as np
 import torch
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchvision.utils import make_grid
 from base import BaseTrainer
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 
 class Trainer(BaseTrainer):
     """
@@ -22,7 +23,7 @@ class Trainer(BaseTrainer):
         self.valid = True if self.valid_data_loader is not None else False
         self.log_step = int(np.sqrt(self.batch_size))
         self.writer = writer
-        self.scheduler = ReduceLROnPlateau(self.optimizer, patience=40, verbose=True)
+        self.scheduler = ReduceLROnPlateau(self.optimizer, factor=0.5, patience=50, verbose=True)
 
     def _train_epoch(self, epoch):
         """
@@ -49,6 +50,7 @@ class Trainer(BaseTrainer):
 
             self.optimizer.zero_grad()
             output = self.model(data)
+            
             loss = self.loss(output, target)
             loss.backward()
             self.optimizer.step()
@@ -59,6 +61,7 @@ class Trainer(BaseTrainer):
             for i, metric in enumerate(self.metrics):
                 acc_metrics[i] += metric(output, target)
                 self.writer.add_scalar(f'train/{metric.__name__}', acc_metrics[i], train_steps)
+            
             if self.verbosity >= 2 and batch_idx % self.log_step == 0:
                 self.writer.add_image('train/input', make_grid(data[:32].cpu(), nrow=4), train_steps)
                 self.writer.add_image('train/target', make_grid(target[:32].cpu(), nrow=4), train_steps)
@@ -66,7 +69,6 @@ class Trainer(BaseTrainer):
                 self.logger.info('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
                     epoch,
                     batch_idx * self.data_loader.batch_size,
-                    # len(self.data_loader) * self.data_loader.batch_size,
                     self.data_loader.n_samples,
                     100.0 * batch_idx / len(self.data_loader),
                     loss.item()))
@@ -109,6 +111,7 @@ class Trainer(BaseTrainer):
                 for i, metric in enumerate(self.metrics):
                     acc_metrics[i] += metric(output, target)
                     self.writer.add_scalar(f'valid/{metric.__name__}', acc_metrics[i], valid_steps)
+
                 self.writer.add_image('valid/input', make_grid(data[:32].cpu(), nrow=4), valid_steps)
                 self.writer.add_image('valid/target', make_grid(target[:32].cpu(), nrow=4), valid_steps)
                 self.writer.add_image('valid/output', make_grid(output[:32].cpu(), nrow=4), valid_steps)

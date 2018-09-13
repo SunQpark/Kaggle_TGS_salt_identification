@@ -5,7 +5,7 @@ from torchvision.models import resnet18, resnet34
 from base import BaseModel
 
 
-def make_block(in_ch, out_ch, dropout=0.1, residual=False, upsample=False, activation='relu', last_activation=True):
+def make_block(in_ch, out_ch, dropout=0.5, residual=False, upsample=False, activation='relu', last_activation=True):
     if activation == 'relu':
         activ = nn.ReLU(inplace=True)
     elif activation == 'leaky_relu':
@@ -16,22 +16,19 @@ def make_block(in_ch, out_ch, dropout=0.1, residual=False, upsample=False, activ
     if residual:
         layers = [
             nn.Conv2d(in_ch, out_ch, 3, 1, padding=1),
-            nn.Dropout2d(p=dropout, inplace=False),
             nn.BatchNorm2d(out_ch),
-            activ,
-
+            # activ,
+            ResidualBlock(out_ch, out_ch, activ),
             ResidualBlock(out_ch, out_ch, activ)
         ]
     else:
         layers = [
             nn.Conv2d(in_ch, out_ch, 3, 1, padding=1),
-            nn.Dropout2d(p=dropout, inplace=False),
             nn.BatchNorm2d(out_ch),
             activ,
 
             nn.Conv2d(out_ch, out_ch, 3, 1, padding=1),
-            nn.Dropout2d(p=dropout, inplace=False),
-            nn.BatchNorm2d(out_ch),
+            nn.BatchNorm2d(out_ch)
         ]
 
     if upsample:
@@ -44,6 +41,10 @@ def make_block(in_ch, out_ch, dropout=0.1, residual=False, upsample=False, activ
 
     if last_activation:
         layers += [activ]
+
+    if dropout != 0.0:
+        layers += [nn.Dropout2d(p=dropout, inplace=False)]
+
     return nn.Sequential(*layers)
 
 
@@ -81,22 +82,23 @@ class Unet(nn.Module):
     def __init__(self, in_ch=3, out_ch=1, n_fts=32, residual=False):
         super(Unet, self).__init__()
         self.encoder = nn.Sequential(
-            make_block(in_ch,   n_fts,   residual=residual),
-            make_block(n_fts,   n_fts*2, residual=residual),
-            make_block(n_fts*2, n_fts*4, residual=residual),
-            make_block(n_fts*4, n_fts*8, residual=residual),
+            make_block(in_ch,   n_fts,   residual=residual, dropout=0.25),
+            make_block(n_fts,   n_fts*2, residual=residual, dropout=0.5),
+            make_block(n_fts*2, n_fts*4, residual=residual, dropout=0.5),
+            make_block(n_fts*4, n_fts*8, residual=residual, dropout=0.5),
         )
 
         self.bottleneck = nn.Sequential(
-            make_block(n_fts*8,  n_fts*16, residual=residual),
-            make_block(n_fts*16, n_fts*16, residual=residual, upsample=True)
+            make_block(n_fts*8,  n_fts*16, residual=residual, dropout=0.5, upsample=True),
+            # make_block(n_fts*16, n_fts*16, residual=residual, dropout=0.5),
+            # make_block(n_fts*16, n_fts*16, residual=residual, dropout=0.5)
         )
 
         self.decoder = nn.Sequential(
-            make_block(n_fts*16, n_fts*8, residual=residual, upsample=True),
-            make_block(n_fts*8,  n_fts*4, residual=residual, upsample=True),
-            make_block(n_fts*4,  n_fts*2, residual=residual, upsample=True),
-            make_block(n_fts*2,  n_fts,   residual=residual, upsample=False),
+            make_block(n_fts*16, n_fts*8, residual=residual, dropout=0.5,  upsample=True),
+            make_block(n_fts*8,  n_fts*4, residual=residual, dropout=0.5,  upsample=True),
+            make_block(n_fts*4,  n_fts*2, residual=residual, dropout=0.5,  upsample=True),
+            make_block(n_fts*2,  n_fts,   residual=residual, dropout=0.25, upsample=False),
         )
         self.output = nn.Conv2d(n_fts, out_ch, 1, 1)
     
@@ -118,47 +120,60 @@ class Unet(nn.Module):
         return x
 
 
-class EmptyFilter(nn.Module):
-    def __init__(self):
-        super(EmptyFilter, self).__init__()
-        resnet = resnet18(pretrained=False)
-        self.layers = nn.Sequential(
-            *list(resnet.children())[:-2],
-            nn.AdaptiveAvgPool2d(1))
-        self.fc = nn.Linear(512, 1)
-        # print(self.resnet)
-        
+class ResnetUnet(nn.Module):
+    def __init__(self, n_fts=32, out_ch=1):
+        super(ResnetUnet, self).__init__()
+        resnet = resnet34(pretrained=True)
+
+        self.layers = nn.Sequential(*list(resnet.children())[:-2])
+        for i, l in enumerate(self.layers.children()):
+            if i <= 5:
+                l.requires_grad = False
+
+        self.skip = []
+        def hook(module, input, output): self.skip.append(output)
+        for l in list(self.layers.children())[4:]:
+            l.register_forward_hook(hook)
+
+        self.decoder = nn.Sequential(
+            make_block(n_fts*32, n_fts*16, upsample=True),
+            make_block(n_fts*16, n_fts*8,  upsample=True),
+            make_block(n_fts*8,  n_fts*4,  upsample=True),
+            make_block(n_fts*4,  n_fts*2,  upsample=True),
+        )
+        self.empty_filter = nn.Sequential(
+            nn.Conv2d(512, 256, 1, 1, 0),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+            nn.AdaptiveAvgPool2d((-1, 1)),
+            nn.Linear(256, 1),
+            nn.Sigmoid()
+        )
+        self.output = nn.Sequential(
+            make_block(n_fts,  n_fts,  upsample=True),
+            nn.Conv2d(n_fts//2, out_ch, 1, 1),
+        )
+
     def forward(self, x_input):
+        self.skip = []
         x = self.layers(x_input)
-        output = self.fc(x.view(-1, 512))
-        return F.sigmoid(output)
 
-
-class UnetWithEmptyClassifier(nn.Module):
-    def __init__(self, n_fts):
-        super(UnetWithEmptyClassifier, self).__init__()
-        self.clsfier = EmptyFilter()
-        self.unet = Unet(n_fts=n_fts)
-
-    def forward(self, x_input):
-        # b, c, w, h = x_input.shape
-        emptiness = self.clsfier(x_input)
-        nemp_idx = (emptiness > 0.5).long()
-        # shield for empty batch
-        if torch.max(nemp_idx) == 0:
-            nemp_idx[0] = 1
-        nemp_img = torch.masked_select(x_input, nemp_idx)
-        nemp_out = self.unet(nemp_img)
-        return emptiness, nemp_idx, nemp_out
+        for up_block in self.decoder.children():
+            x = torch.cat([self.skip.pop(), x], dim=1)
+            x = up_block(x)
+        
+        x = self.output(x)
+        output = (F.tanh(x) + 1)/2
+        return output
 
 
 
 if __name__ == '__main__':
-    dummy_input = torch.randn(4, 3, 112, 112)
-    model = Unet()
-    # model = UnetWithResnetEncoder()
-    print(model)
-    out = model(dummy_input)
-    print(out.shape)
+    dummy_input = torch.randn(4, 3, 128, 128)
+    model = ResnetUnet()
+    # print(model)
+    cls_out, seg_out = model(dummy_input)
+    print(cls_out.shape)
+    print(seg_out.shape)
     
 

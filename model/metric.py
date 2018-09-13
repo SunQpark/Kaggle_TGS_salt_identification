@@ -21,6 +21,9 @@ def iou_score(output, target, threshold=0.8, eps=1e-8):
     return torch.mean(intersection / union)
 
 def mean_iou(output, target, threshold=0.8, eps=1e-8):
+    output = output[:, :, 13:-14, 13:-14]
+    target = target[:, :, 13:-14, 13:-14]
+
     b = output.shape[0]
     output = output.view(b, -1)
     target = target.view(b, -1).float()

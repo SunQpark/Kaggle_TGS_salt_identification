@@ -18,8 +18,8 @@ def make_block(in_ch, out_ch, dropout=0.5, residual=False, upsample=False, activ
             nn.Conv2d(in_ch, out_ch, 3, 1, padding=1),
             nn.BatchNorm2d(out_ch),
             # activ,
-            ResidualBlock(out_ch, out_ch, activ),
-            ResidualBlock(out_ch, out_ch, activ)
+            ResidualBlock(out_ch, out_ch//4, activ),
+            ResidualBlock(out_ch, out_ch//4, activ)
         ]
     else:
         layers = [
@@ -62,9 +62,8 @@ class ResidualBlock(nn.Module):
             activation)
 
         self.conv3 = nn.Sequential(
-            nn.Conv2d(ch, ch, 1, 1, padding=0, bias=False),
-            nn.BatchNorm2d(ch),
-            activation)
+            nn.Conv2d(ch, in_ch, 1, 1, padding=0, bias=False),
+            nn.BatchNorm2d(in_ch))
 
         self.downsample = downsample
 

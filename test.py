@@ -66,7 +66,7 @@ if __name__ == '__main__':
     # Evaluate models trained on each fold of cross-validation
     # for fold_idx in range(num_folds):
     for fold_idx in folds:
-        resume_path = f'saved/Unet_Res34_Encoder/model_best.pth.tar'
+        resume_path = f'saved/Unet_ResBlock_fixed/model_best.pth.tar'
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         evaluate(resume_path, dataset, device=device)
         # break

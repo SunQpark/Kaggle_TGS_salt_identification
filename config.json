@@ -1,5 +1,5 @@
 {
-    "name": "Unet_Res34encoder",
+    "name": "Unet_ResBlock_fixed",
     "cuda": true,
     "gpu": 0,
     "data_loader": {

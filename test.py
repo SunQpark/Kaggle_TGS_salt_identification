@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 from torchvision import transforms
-from model.model import Unet, ResnetUnet
+from model.model import Unet, ResnetUnet, Generator
 from data_loader import SaltDataset
 from PIL import Image
 from utils import rle_encode, rle_decode
@@ -15,13 +15,13 @@ from skimage.io import imread
 
 def evaluate(model_path, dataset, device):
     # load trained weights
-    model = ResnetUnet(n_fts=32)
+    model = Unet(n_fts=16)
     print(f"Loading checkpoint: {model_path} ...")
     checkpoint = torch.load(model_path)
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)
 
-    batch_size = 1024
+    batch_size = 512
     batch = []
     ids = []
 
@@ -57,8 +57,10 @@ if __name__ == '__main__':
     shutil.rmtree('saved/temp')
     os.mkdir('saved/temp')
     
+
+    pad = (13, 13, 14, 14)
     trfm = transforms.Compose([
-        transforms.Pad((13, 13, 14, 14), padding_mode='reflect'),
+        transforms.Pad(pad, padding_mode='reflect'),
         transforms.ToTensor(),
         ])
     dataset = SaltDataset('input', transform=trfm, train=False)
@@ -66,7 +68,7 @@ if __name__ == '__main__':
     # Evaluate models trained on each fold of cross-validation
     # for fold_idx in range(num_folds):
     for fold_idx in folds:
-        resume_path = f'saved/Unet_ResBlock_fixed/model_best.pth.tar'
+        resume_path = f'saved/Unet_naive/model_best.pth.tar'
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         evaluate(resume_path, dataset, device=device)
         # break

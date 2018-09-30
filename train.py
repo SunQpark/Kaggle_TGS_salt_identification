@@ -12,6 +12,7 @@ from data_loader import SaltDataLoader
 from trainer import Trainer
 from logger import Logger
 
+
 logging.basicConfig(level=logging.INFO, format='')
 
 
@@ -23,7 +24,6 @@ def main(config, resume):
     valid_data_loader = data_loader.split_validation()
 
     model = eval(config['arch'])(**config['model'])
-    # model.summary()
     print(model)
 
     loss = eval(config['loss'])

@@ -21,12 +21,12 @@ def iou_score(output, target, threshold=0.8, eps=1e-8):
     return torch.mean(intersection / union)
 
 def mean_iou(output, target, threshold=0.8, eps=1e-8):
-    output = output[:, :, 13:-14, 13:-14]
-    target = target[:, :, 13:-14, 13:-14]
+    output = output[:, :, 1:-2, 1:-2]
+    target = target[:, :, 1:-2, 1:-2]
 
     b = output.shape[0]
-    output = output.view(b, -1)
-    target = target.view(b, -1).float()
+    output = output.contiguous().view(b, -1)
+    target = target.contiguous().view(b, -1).float()
     output = (output > threshold).float()
     
     output_empty = torch.max(output, dim=1, keepdim=True)[0] == 0

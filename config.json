@@ -1,18 +1,17 @@
 {
-    "name": "Unet_ResBlock_fixed",
+    "name": "Unet_Resblock_kernel",
     "cuda": true,
     "gpu": 0,
     "data_loader": {
         "data_dir": "./input/",
         "batch_size": 256,
-        "shuffle": true     
+        "shuffle": true
     },
     "validation": {
         "validation_split": 0.05,
         "shuffle": true,
         "fold": 0
     },
- 
     "optimizer_type": "Adam",
     "optimizer": {
         "lr": 0.002,
@@ -20,7 +19,9 @@
         "amsgrad": true
     },
     "loss": "bce_with_l1_loss",
-    "metrics": ["mean_iou"],
+    "metrics": [
+        "mean_iou"
+    ],
     "trainer": {
         "epochs": 500,
         "save_dir": "saved/",
@@ -29,8 +30,9 @@
         "monitor": "val_mean_iou",
         "monitor_mode": "max"
     },
-    "arch": "ResnetUnet", 
+    "arch": "Unet",
     "model": {
+        "residual": true,
         "n_fts": 32
     }
 }

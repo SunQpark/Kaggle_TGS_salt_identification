@@ -7,7 +7,7 @@ from torch.utils.data import Dataset
 from torchvision import datasets, transforms
 from PIL import Image
 from base import BaseDataLoader
-from utils import rle_decode
+from utils import rle_decode, blur_measure
 
 
 class SaltDataset(Dataset):
@@ -53,17 +53,40 @@ class SaltDataset(Dataset):
 
 class SaltDataLoader(BaseDataLoader):
     def __init__(self, config):
-        trsfm = transforms.Compose([ 
-            transforms.RandomResizedCrop(101, scale=(0.7, 1.0)),# ratio=(0.75, 1.3333333333333333)),
-            transforms.RandomHorizontalFlip(p=0.5),
-            # transforms.Pad((5, 5, 6, 6), padding_mode='reflect'),
-            transforms.Pad((13, 13, 14, 14), padding_mode='reflect'),
-            transforms.ToTensor(),
-            ])
+        trsfm = transforms.Compose([
+                BlurAwareCrop(),
+            # transforms.RandomResizedCrop(101, scale=(0.7, 1.0)),# ratio=(0.75, 1.3333333333333333)),
+                transforms.Compose([transforms.RandomHorizontalFlip(p=0.5),
+                    # transforms.Pad((5, 5, 6, 6), padding_mode='reflect'),
+                    transforms.Pad((13, 13, 14, 14), padding_mode='reflect'),
+                    # transforms.Pad((1, 1, 2, 2), padding_mode='edge'),
+                    transforms.ToTensor()
+                    ])
+            ]
+            )
         self.data_dir = config['data_loader']['data_dir']
         self.dataset = SaltDataset(self.data_dir, transform=trsfm, target_transform=trsfm)
         super(SaltDataLoader, self).__init__(self.dataset, config)
 
+class BlurAwareCrop():
+    def __init__(self, prob=0.7, blur_thres=200, min_crop=70, return_size=101):
+        self.prob = prob
+        self.blur_thres = blur_thres
+        self.min_crop = min_crop
+        self.return_size = return_size
+        self.tr = None
+
+    def __call__(self, img):
+        if img.mode == 'RGB':
+            if blur_measure(img) > self.blur_thres and np.random.rand() < self.prob:
+                crop_size = np.random.randint(self.min_crop, self.return_size)
+                self.tr = transforms.Compose([
+                    transforms.RandomCrop(crop_size),
+                    transforms.Resize(self.return_size)
+                ])
+            else:
+                self.tr = transforms.Compose([])
+        return self.tr(img)
 
 import json
 if __name__ == '__main__':

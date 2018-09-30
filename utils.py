@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import cv2
 
 
 def ensure_dir(path):
@@ -33,3 +34,10 @@ def rle_decode(mask_rle, shape):
     for lo, hi in zip(starts, ends):
         img[lo:hi] = 1
     return img.reshape(shape).T  # Needed to align to RLE direction
+
+def blur_measure(img_pil):
+    img_cv = cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+    return cv2.Laplacian(img_cv, cv2.CV_64F).var()
+
+def isempty(mask):
+    pass

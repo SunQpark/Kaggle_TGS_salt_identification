@@ -17,7 +17,7 @@ def make_block(in_ch, out_ch, dropout=0.5, residual=False, upsample=False, activ
         layers = [
             nn.Conv2d(in_ch, out_ch, 3, 1, padding=1),
             nn.BatchNorm2d(out_ch),
-            # activ,
+            activ,
             ResidualBlock(out_ch, out_ch//4, activ),
             ResidualBlock(out_ch, out_ch//4, activ)
         ]
@@ -47,25 +47,64 @@ def make_block(in_ch, out_ch, dropout=0.5, residual=False, upsample=False, activ
 
     return nn.Sequential(*layers)
 
+def conv4x4(in_ch, out_ch, stride=1, activation=None):
+    if activation is None:
+        activation = nn.ReLU(inplace=True)
+    return nn.Sequential(
+        nn.ReflectionPad2d([1, 2, 1, 2]),
+        nn.Conv2d(in_ch, out_ch, 4, stride),
+        nn.BatchNorm2d(out_ch),
+        activation
+    )
+
+def upconv4x4(in_ch, out_ch, stride=1, activation=None, checker_fix=True):
+    if activation is None:
+        activation = nn.ReLU(inplace=True)
+    if checker_fix:
+        return nn.Sequential(
+            nn.Upsample(scale_factor=2),
+            nn.ReflectionPad2d([1, 2, 1, 2]),
+            nn.Conv2d(in_ch, out_ch, 4, stride),
+            nn.BatchNorm2d(out_ch),
+            activation
+        )
+    else:
+        return nn.Sequential(
+            nn.ConvTranspose2d(in_ch, out_ch, 4, stride, padding=1),
+            nn.BatchNorm2d(out_ch),
+            activation
+        )
+
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_ch, ch, activation, stride=1, downsample=None, groups=1):
+    def __init__(self, in_ch, ch, activation=None, stride=1, groups=1):
         super(ResidualBlock, self).__init__()
+        if activation is None:
+            self.activation = nn.ReLU(inplace=True)
+        else:
+            self.activation = activation
+        assert ch % 4 == 0
         self.conv1 = nn.Sequential(
-            nn.Conv2d(in_ch, ch, 1, 1, padding=0, bias=False),
-            nn.BatchNorm2d(ch),
-            activation)
+            nn.Conv2d(in_ch, ch//4, 1, 1, padding=0, bias=False),
+            nn.BatchNorm2d(ch//4),
+            self.activation)
 
         self.conv2 = nn.Sequential(
-            nn.Conv2d(ch, ch, 3, stride, padding=1, bias=False, groups=groups),
-            nn.BatchNorm2d(ch),
-            activation)
+            nn.Conv2d(ch//4, ch//4, 3, stride, padding=1, bias=False, groups=groups),
+            nn.BatchNorm2d(ch//4),
+            self.activation)
 
         self.conv3 = nn.Sequential(
-            nn.Conv2d(ch, in_ch, 1, 1, padding=0, bias=False),
-            nn.BatchNorm2d(in_ch))
-
-        self.downsample = downsample
+            nn.Conv2d(ch//4, ch, 1, 1, padding=0, bias=False),
+            nn.BatchNorm2d(ch))
+        
+        if in_ch != ch or stride != 1:
+            self.downsample = nn.Sequential(
+                nn.Conv2d(in_ch, ch, 3, stride, padding=1, bias=False),
+                nn.BatchNorm2d(ch)
+            )
+        else:
+            self.downsample = None
 
     def forward(self, x_input):
         skip = x_input
@@ -74,7 +113,7 @@ class ResidualBlock(nn.Module):
         x = self.conv3(x)
         if self.downsample is not None:
             skip = self.downsample(skip)
-        return x + skip
+        return self.activation(x + skip)
 
 
 class Unet(nn.Module):
@@ -88,9 +127,9 @@ class Unet(nn.Module):
         )
 
         self.bottleneck = nn.Sequential(
-            make_block(n_fts*8,  n_fts*16, residual=residual, dropout=0.5, upsample=True),
-            # make_block(n_fts*16, n_fts*16, residual=residual, dropout=0.5),
-            # make_block(n_fts*16, n_fts*16, residual=residual, dropout=0.5)
+            make_block(n_fts*8,  n_fts*16, residual=residual, dropout=0.5),
+            make_block(n_fts*16, n_fts*16, residual=residual, dropout=0.5),
+            make_block(n_fts*16, n_fts*16, residual=residual, dropout=0.5, upsample=True)
         )
 
         self.decoder = nn.Sequential(
@@ -140,14 +179,6 @@ class ResnetUnet(nn.Module):
             make_block(n_fts*8,  n_fts*4,  upsample=True),
             make_block(n_fts*4,  n_fts*2,  upsample=True),
         )
-        self.empty_filter = nn.Sequential(
-            nn.Conv2d(512, 256, 1, 1, 0),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.AdaptiveAvgPool2d((-1, 1)),
-            nn.Linear(256, 1),
-            nn.Sigmoid()
-        )
         self.output = nn.Sequential(
             make_block(n_fts,  n_fts,  upsample=True),
             nn.Conv2d(n_fts//2, out_ch, 1, 1),
@@ -157,6 +188,7 @@ class ResnetUnet(nn.Module):
         self.skip = []
         x = self.layers(x_input)
 
+        assert len(self.skip) == 4
         for up_block in self.decoder.children():
             x = torch.cat([self.skip.pop(), x], dim=1)
             x = up_block(x)
@@ -166,13 +198,58 @@ class ResnetUnet(nn.Module):
         return output
 
 
+class Generator(nn.Module):
+    def __init__(self, in_ch=3, out_ch=1, n_fts=64):
+        super(Generator, self).__init__()
+        self.conv1 = conv4x4(in_ch, n_fts, stride=2)
+        self.encode1 = nn.Sequential(
+            conv4x4(n_fts, n_fts*2, stride=2),
+            self.residual_blocks(n_fts*2, n_fts*4, 3),
+        )
+        self.encode2 = nn.Sequential(
+            conv4x4(n_fts*4, n_fts*8, stride=2),
+            self.residual_blocks(n_fts*8, n_fts*8, 3),
+        )
+        self.bottleneck = nn.Sequential(
+            conv4x4(n_fts*8, n_fts*8, stride=1),
+            self.residual_blocks(n_fts*8, n_fts*8, 3),
+            upconv4x4(n_fts*8, n_fts*4, stride=2)
+        )
+        self.decode1 = nn.Sequential(
+            self.residual_blocks(n_fts*12, n_fts*4, 3),
+            upconv4x4(n_fts*4, n_fts*2),
+        )
+        self.decode2 = nn.Sequential(
+            self.residual_blocks(n_fts*6, n_fts, 3),
+            upconv4x4(n_fts, n_fts)
+        )
+        self.output = upconv4x4(n_fts, out_ch, activation=nn.Sigmoid())
+
+    def residual_blocks(self, in_ch, ch, n_res):
+        layers = [ResidualBlock(in_ch, ch)] + [ResidualBlock(ch, ch) for _ in range(n_res-1)]
+        return nn.Sequential(*layers)
+
+    def forward(self, x_input):
+        skip = []
+        x = self.conv1(x_input)
+        x = self.encode1(x)
+        skip.append(x)
+        x = self.encode2(x)
+        skip.append(x)
+        x = self.bottleneck(x)
+        x = torch.cat([skip.pop(), x], dim=1)
+        x = self.decode1(x)
+        x = torch.cat([skip.pop(), x], dim=1)
+        x = self.decode2(x)
+        return self.output(x)
+
+
 
 if __name__ == '__main__':
-    dummy_input = torch.randn(4, 3, 128, 128)
-    model = ResnetUnet()
+    dummy_input = torch.randn(4, 3, 104, 104)
+    model = Generator()
     # print(model)
-    cls_out, seg_out = model(dummy_input)
-    print(cls_out.shape)
-    print(seg_out.shape)
+    output = model(dummy_input)
+    print(output.shape)
     
 
